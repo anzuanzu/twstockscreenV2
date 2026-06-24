@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>台股型態條件雷達</title>
+    <title>台股 / 美股型態條件雷達</title>
     <meta
       name="description"
-      content="依照 TradingView 台股資料，找出符合多頭回檔、空頭反彈、杯柄/VCP、突破確認與圓弧底轉強條件的台灣股票，並支援新欄位排序與篩選。"
+      content="依照 TradingView 台股與美股資料，找出符合多頭回檔、空頭反彈、杯柄/VCP、突破確認與圓弧底轉強條件的股票，並支援新欄位排序與篩選。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,22 +14,23 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=DM+Sans:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20260624-2" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-3" />
   </head>
   <body>
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">TradingView 台股掃描</p>
-          <h1>台股型態條件雷達</h1>
+          <p id="pageEyebrow" class="eyebrow">TradingView 台股掃描</p>
+          <h1 id="pageTitle">台股 / 美股型態條件雷達</h1>
           <p class="hero-text">
-            以參考頁面的快捷條件為核心，直接掃描台股最新資料，抓出
+            以參考頁面的快捷條件為核心，直接掃描台股與美股最新資料，抓出
             <strong>多頭回檔</strong>、<strong>空頭反彈</strong>、<strong>杯柄 / VCP</strong>、<strong>突破確認</strong>與<strong>圓弧底轉強</strong>的股票，並補上
             TradingView 分析師評級、距 SMA20 等可排序可篩選欄位。
           </p>
           <div class="hero-actions">
             <button id="refreshButton" class="primary-button" type="button">更新最新數據</button>
             <a
+              id="screenerLink"
               class="ghost-button"
               href="https://tw.tradingview.com/screener/"
               target="_blank"
@@ -157,18 +158,26 @@
 
         <section class="toolbar">
           <div class="control-group control-group-wide">
+            <label for="universeFilter">標的池</label>
+            <select id="universeFilter">
+              <option value="TAIWAN">全部台股</option>
+              <option value="US">全部美股</option>
+            </select>
+          </div>
+
+          <div class="control-group control-group-wide">
             <label for="searchInput">搜尋股票</label>
             <input
               id="searchInput"
               type="search"
-              placeholder="輸入代號、公司名稱或交易所，例如 2330 / 台積電 / TPEX"
+              placeholder="輸入代號、公司名稱或交易所，例如 2330 / 台積電 / AAPL / NASDAQ"
             />
           </div>
 
           <div class="control-group">
-            <label for="marketFilter">市場</label>
+            <label for="marketFilter">交易所</label>
             <select id="marketFilter">
-              <option value="ALL">全部</option>
+              <option value="ALL">全部交易所</option>
               <option value="TWSE">上市 TWSE</option>
               <option value="TPEX">上櫃 TPEX</option>
             </select>
@@ -279,7 +288,7 @@
       <div class="chart-preview-head">
         <div>
           <p id="previewSymbol" class="preview-symbol">TWSE:2330</p>
-          <p id="previewName" class="preview-name">台股 K 線快顯</p>
+          <p id="previewName" class="preview-name">股票 K 線快顯</p>
         </div>
         <a id="previewLink" href="#" target="_blank" rel="noreferrer">開啟完整圖表</a>
       </div>
@@ -309,6 +318,6 @@
       </tr>
     </template>
 
-    <script defer src="./app.js?v=20260624-2"></script>
+    <script defer src="./app.js?v=20260624-3"></script>
   </body>
 </html>

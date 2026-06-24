@@ -4,7 +4,10 @@ const path = require("path");
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
-const SCAN_URL = "https://scanner.tradingview.com/taiwan/scan";
+const SCAN_MARKETS = {
+  taiwan: "https://scanner.tradingview.com/taiwan/scan",
+  america: "https://scanner.tradingview.com/america/scan",
+};
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -43,14 +46,20 @@ function sendFile(res, filePath) {
   });
 }
 
-async function proxyTaiwanScan(req, res) {
+async function proxyScan(req, res, market) {
+  const scanUrl = SCAN_MARKETS[market];
+  if (!scanUrl) {
+    sendJson(res, 400, { message: "Unsupported market" });
+    return;
+  }
+
   const chunks = [];
   for await (const chunk of req) {
     chunks.push(chunk);
   }
 
   const body = Buffer.concat(chunks).toString("utf8");
-  const response = await fetch(SCAN_URL, {
+  const response = await fetch(scanUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
@@ -68,8 +77,9 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    if (req.method === "POST" && url.pathname === "/api/taiwan-scan") {
-      await proxyTaiwanScan(req, res);
+    if (req.method === "POST" && url.pathname === "/api/scan") {
+      const market = url.searchParams.get("market") || "taiwan";
+      await proxyScan(req, res, market);
       return;
     }
 

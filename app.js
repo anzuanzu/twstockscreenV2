@@ -1,6 +1,41 @@
-const SCAN_PROXY_URL = "/api/taiwan-scan";
-const SCAN_URL = "https://scanner.tradingview.com/taiwan/scan";
+const SCAN_PROXY_URL = "/api/scan";
 const TABLE_COLUMN_COUNT = 13;
+const UNIVERSE_CONFIG = {
+  TAIWAN: {
+    key: "TAIWAN",
+    label: "台股",
+    screenerLabel: "TradingView 台股掃描",
+    titleLabel: "台股 / 美股型態條件雷達",
+    scanMarket: "taiwan",
+    scanUrl: "https://scanner.tradingview.com/taiwan/scan",
+    screenerUrl: "https://tw.tradingview.com/screener/",
+    locale: "zh_TW",
+    fetchRange: 3000,
+    marketOptions: [
+      { value: "ALL", label: "全部交易所" },
+      { value: "TWSE", label: "上市 TWSE" },
+      { value: "TPEX", label: "上櫃 TPEX" },
+    ],
+  },
+  US: {
+    key: "US",
+    label: "美股",
+    screenerLabel: "TradingView 美股掃描",
+    titleLabel: "台股 / 美股型態條件雷達",
+    scanMarket: "america",
+    scanUrl: "https://scanner.tradingview.com/america/scan",
+    screenerUrl: "https://www.tradingview.com/screener/",
+    locale: "en",
+    fetchRange: 15000,
+    marketOptions: [
+      { value: "ALL", label: "全部交易所" },
+      { value: "NASDAQ", label: "NASDAQ" },
+      { value: "NYSE", label: "NYSE" },
+      { value: "AMEX", label: "AMEX" },
+      { value: "OTC", label: "OTC" },
+    ],
+  },
+};
 const COLUMNS = [
   "name",
   "description",
@@ -50,6 +85,7 @@ function selectAny(selectors) {
 
 const state = {
   loading: false,
+  universe: "TAIWAN",
   rows: [],
   filteredRows: [],
   lastUpdated: null,
@@ -58,6 +94,7 @@ const state = {
 
 const els = {
   refreshButton: document.querySelector("#refreshButton"),
+  universeFilter: document.querySelector("#universeFilter"),
   statusText: document.querySelector("#statusText"),
   bullWeekCount: selectAny(["#bullWeekCount", "#weekCount"]),
   bullMonthCount: selectAny(["#bullMonthCount", "#monthCount"]),
@@ -84,6 +121,9 @@ const els = {
   previewLink: document.querySelector("#previewLink"),
   previewFrame: document.querySelector("#previewFrame"),
   protocolWarning: document.querySelector("#protocolWarning"),
+  pageTitle: document.querySelector("#pageTitle"),
+  pageEyebrow: document.querySelector("#pageEyebrow"),
+  screenerLink: document.querySelector("#screenerLink"),
 };
 
 function setText(element, value) {
@@ -137,7 +177,16 @@ function formatCloseDate(epochSeconds) {
 }
 
 function marketLabel(exchange) {
-  return exchange === "TWSE" ? "上市 TWSE" : exchange === "TPEX" ? "上櫃 TPEX" : exchange;
+  const labels = {
+    TWSE: "上市 TWSE",
+    TPEX: "上櫃 TPEX",
+    NASDAQ: "NASDAQ",
+    NYSE: "NYSE",
+    AMEX: "AMEX",
+    OTC: "OTC",
+  };
+
+  return labels[exchange] || exchange;
 }
 
 function distancePercent(close, average) {
@@ -220,6 +269,47 @@ function buildWidgetUrl(symbol) {
 
 function buildSymbolPageUrl(symbol) {
   return `https://tw.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`;
+}
+
+function getUniverseConfig(universe = state.universe) {
+  return UNIVERSE_CONFIG[universe] || UNIVERSE_CONFIG.TAIWAN;
+}
+
+function populateMarketFilter() {
+  if (!els.marketFilter) {
+    return;
+  }
+
+  const { marketOptions } = getUniverseConfig();
+  const previousValue = els.marketFilter.value;
+  els.marketFilter.innerHTML = marketOptions
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join("");
+
+  const hasPreviousValue = marketOptions.some((option) => option.value === previousValue);
+  els.marketFilter.value = hasPreviousValue ? previousValue : "ALL";
+}
+
+function syncUniverseUi() {
+  const config = getUniverseConfig();
+
+  if (els.universeFilter) {
+    els.universeFilter.value = state.universe;
+  }
+
+  if (els.pageTitle) {
+    els.pageTitle.textContent = config.titleLabel;
+  }
+
+  if (els.pageEyebrow) {
+    els.pageEyebrow.textContent = config.screenerLabel;
+  }
+
+  if (els.screenerLink) {
+    els.screenerLink.href = config.screenerUrl;
+  }
+
+  populateMarketFilter();
 }
 
 function normaliseRow(item) {
@@ -381,21 +471,23 @@ function normaliseRow(item) {
 }
 
 async function fetchStocks() {
+  const config = getUniverseConfig();
   const payload = {
-    filter: [
-      { left: "type", operation: "equal", right: "stock" },
-      { left: "exchange", operation: "in_range", right: ["TWSE", "TPEX"] },
-    ],
-    options: { lang: "zh_TW" },
-    range: [0, 3000],
+    filter: [{ left: "type", operation: "equal", right: "stock" }],
+    options: { lang: config.locale },
+    range: [0, config.fetchRange],
     sort: { sortBy: "name", sortOrder: "asc" },
     columns: COLUMNS,
   };
 
+  if (config.key === "TAIWAN") {
+    payload.filter.push({ left: "exchange", operation: "in_range", right: ["TWSE", "TPEX"] });
+  }
+
   let response;
 
   try {
-    response = await fetch(SCAN_PROXY_URL, {
+    response = await fetch(`${SCAN_PROXY_URL}?market=${encodeURIComponent(config.scanMarket)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -405,7 +497,7 @@ async function fetchStocks() {
       throw new Error(`proxy ${response.status}`);
     }
   } catch {
-    response = await fetch(SCAN_URL, {
+    response = await fetch(config.scanUrl, {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -560,7 +652,7 @@ function applyFilters() {
   renderRows(sorted);
   setText(
     els.resultMeta,
-    `顯示 ${sorted.length.toLocaleString("zh-TW")} 檔 / 原始掃描 ${state.rows.length.toLocaleString("zh-TW")} 檔`,
+    `${getUniverseConfig().label}顯示 ${sorted.length.toLocaleString("zh-TW")} 檔 / 原始掃描 ${state.rows.length.toLocaleString("zh-TW")} 檔`,
   );
 }
 
@@ -907,11 +999,12 @@ async function refreshData() {
     return;
   }
 
+  const config = getUniverseConfig();
   state.loading = true;
   if (els.refreshButton) {
     els.refreshButton.disabled = true;
   }
-  setText(els.statusText, "更新中，正在向 TradingView 取得最新台股掃描資料...");
+  setText(els.statusText, `更新中，正在向 TradingView 取得最新${config.label}掃描資料...`);
   setHtml(
     els.stockTableBody,
     `<tr><td colspan="${TABLE_COLUMN_COUNT}" class="empty-state">正在更新資料...</td></tr>`,
@@ -931,7 +1024,7 @@ async function refreshData() {
     }).format(state.lastUpdated);
 
     setText(els.lastUpdated, timeText);
-    setText(els.statusText, `更新完成，共取得 ${state.rows.length.toLocaleString("zh-TW")} 檔台股資料。`);
+    setText(els.statusText, `更新完成，共取得 ${state.rows.length.toLocaleString("zh-TW")} 檔${config.label}資料。`);
   } catch (error) {
     setText(els.statusText, `更新失敗：${error.message}`);
     setHtml(
@@ -948,6 +1041,11 @@ async function refreshData() {
 
 function bindEvents() {
   els.refreshButton?.addEventListener("click", refreshData);
+  els.universeFilter?.addEventListener("change", () => {
+    state.universe = els.universeFilter.value || "TAIWAN";
+    syncUniverseUi();
+    refreshData();
+  });
   els.searchInput?.addEventListener("input", applyFilters);
   els.marketFilter?.addEventListener("change", applyFilters);
   els.matchFilter?.addEventListener("change", applyFilters);
@@ -981,6 +1079,15 @@ function initWarnings() {
 
 window.stockRadar = {
   refreshData,
+  setUniverse(universe) {
+    if (!UNIVERSE_CONFIG[universe]) {
+      return;
+    }
+
+    state.universe = universe;
+    syncUniverseUi();
+    refreshData();
+  },
   get state() {
     return state;
   },
@@ -993,6 +1100,7 @@ window.stockRadar = {
   },
 };
 
+syncUniverseUi();
 bindEvents();
 if (initWarnings()) {
   refreshData();
